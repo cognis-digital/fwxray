@@ -3,3 +3,4 @@
 2024-07-17T19:19:29  docs(docs): fix off-by-one in line numbers
 2024-07-28T14:36:36  test: add edge case
 2024-08-25T09:53:43  style(cli): add a JSON schema for output
+2024-09-05T16:10:50  build(report): clarify the README quickstart
