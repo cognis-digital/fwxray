@@ -4,3 +4,4 @@
 2024-07-28T14:36:36  test: add edge case
 2024-08-25T09:53:43  style(cli): add a JSON schema for output
 2024-09-05T16:10:50  build(report): clarify the README quickstart
+2024-10-03T11:27:57  fix(ci): simplify the walker
