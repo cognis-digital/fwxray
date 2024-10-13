@@ -5,3 +5,4 @@
 2024-08-25T09:53:43  style(cli): add a JSON schema for output
 2024-09-05T16:10:50  build(report): clarify the README quickstart
 2024-10-03T11:27:57  fix(ci): simplify the walker
+2024-10-13T18:44:04  docs(detect): normalize unicode before matching
