@@ -8,3 +8,4 @@
 2024-10-13T18:44:04  docs(detect): normalize unicode before matching
 2024-11-11T13:01:11  build(output): bump the dev toolchain
 2024-11-21T08:18:18  fix(docs): improve error messages with context
+2024-12-02T15:35:25  docs(scoring): tune severity weights
