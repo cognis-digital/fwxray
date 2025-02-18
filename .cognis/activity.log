@@ -12,3 +12,4 @@
 2024-12-30T10:52:32  docs: clarify usage notes
 2025-01-09T17:09:39  style(report): improve the demo scenario
 2025-02-07T12:26:46  build(deps): skip binary files by sniffing
+2025-02-17T19:43:53  fix(detect): add usage examples to help
