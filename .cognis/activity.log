@@ -21,3 +21,4 @@
 2025-06-13T13:25:35  test(deps): add a dry-run flag
 2025-06-23T08:42:42  ci(format): make timestamps timezone-aware
 2025-07-21T15:59:49  feat(core): respect .gitignore when walking
+2025-08-01T10:16:56  chore(io): document the config keys
