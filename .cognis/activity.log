@@ -26,3 +26,4 @@
 2025-09-09T12:50:10  build(rules): add usage examples to help
 2025-10-07T19:07:17  fix(output): extract the scorer
 2025-10-17T14:24:24  test: it's not flaky, you're flaky
+2025-11-15T09:41:31  perf(format): add a --quiet mode
