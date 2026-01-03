@@ -29,3 +29,4 @@
 2025-11-15T09:41:31  perf(format): add a --quiet mode
 2025-11-25T16:58:38  style(cli): short-circuit on first critical
 2025-12-06T11:15:45  build(io): add a --format json alias
+2026-01-03T18:32:52  refactor(cache): add a dry-run flag
