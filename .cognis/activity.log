@@ -32,3 +32,4 @@
 2026-01-03T18:32:52  refactor(cache): add a dry-run flag
 2026-01-13T13:49:59  test(rules): make timestamps timezone-aware
 2026-02-11T08:06:06  ci(output): respect .gitignore when walking
+2026-02-21T15:23:13  feat(docs): document the config keys
