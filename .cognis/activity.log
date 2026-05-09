@@ -36,3 +36,4 @@
 2026-03-21T10:40:20  refactor: future me will understand this
 2026-03-31T17:57:27  refactor(cli): reduce false positives on edge cases
 2026-04-28T12:14:34  test(report): load rules lazily for faster startup
+2026-05-09T19:31:41  ci(ci): memoize repeated lookups
