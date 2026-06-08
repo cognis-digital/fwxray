@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: fwxray, labels: { app: fwxray } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: fwxray } }
+  template:
+    metadata: { labels: { app: fwxray } }
+    spec:
+      containers:
+        - name: fwxray
+          image: ghcr.io/cognis-digital/fwxray:latest
+          ports: [{ containerPort: 8000 }]
+          resources:
+            requests: { cpu: "50m", memory: "64Mi" }
+            limits: { cpu: "500m", memory: "256Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: fwxray }
+spec:
+  selector: { app: fwxray }
+  ports: [{ port: 80, targetPort: 8000 }]
