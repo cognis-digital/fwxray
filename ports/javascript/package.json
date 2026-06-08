@@ -1,0 +1,10 @@
+{
+  "name": "@cognis/fwxray",
+  "version": "0.2.0",
+  "description": "JavaScript port of fwxray (Cognis Neural Suite)",
+  "bin": {
+    "fwxray": "index.js"
+  },
+  "license": "LicenseRef-COCL-1.0",
+  "type": "module"
+}
