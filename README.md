@@ -16,7 +16,7 @@
 </div>
 
 ```bash
-pip install cognis-fwxray
+pip install "git+https://github.com/cognis-digital/fwxray.git"
 fwxray scan .            # → prioritized findings in seconds
 ```
 
@@ -51,7 +51,7 @@ Vendor 'security update' transparency — paste two .bin URLs in CI, get a human
 ## Quick start
 
 ```bash
-pip install cognis-fwxray
+pip install "git+https://github.com/cognis-digital/fwxray.git"
 fwxray --version
 fwxray scan .                       # scan current project
 fwxray scan . --format json         # machine-readable
