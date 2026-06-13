@@ -20,6 +20,12 @@ pip install "git+https://github.com/cognis-digital/fwxray.git"
 fwxray scan .            # → prioritized findings in seconds
 ```
 
+<!-- cognis:layman:start -->
+## What is this?
+
+fwxray is a command-line tool that compares two firmware files — the software that runs inside routers, smart home devices, and other embedded hardware — and shows you exactly what changed between versions. When a manufacturer releases a firmware update, fwxray tells you which internal components were swapped, which configuration flags were flipped, and which sections of the file became more or less encrypted, so you know if a "security update" quietly added telemetry or altered settings. It runs entirely on your own computer with no account or internet connection required, and outputs plain text or JSON that can be dropped straight into automated pipelines.
+<!-- cognis:layman:end -->
+
 ## Contents
 
 - [Why fwxray?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
@@ -48,6 +54,42 @@ Vendor 'security update' transparency — paste two .bin URLs in CI, get a human
 <div align="right"><a href="#top">↑ back to top</a></div>
 
 <a name="quick-start"></a>
+<!-- cognis:install:start -->
+## Install
+
+`fwxray` is source-available (not published to PyPI) — every method below installs
+straight from GitHub. Pick whichever you prefer; the one-line scripts auto-detect
+the best tool available on your machine.
+
+**One-liner (Linux / macOS):**
+```sh
+curl -fsSL https://raw.githubusercontent.com/cognis-digital/fwxray/HEAD/install.sh | sh
+```
+
+**One-liner (Windows PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/cognis-digital/fwxray/HEAD/install.ps1 | iex
+```
+
+**Or install manually — any one of:**
+```sh
+pipx install "git+https://github.com/cognis-digital/fwxray.git"     # isolated (recommended)
+uv tool install "git+https://github.com/cognis-digital/fwxray.git"  # uv
+pip install "git+https://github.com/cognis-digital/fwxray.git"      # pip
+```
+
+**From source:**
+```sh
+git clone https://github.com/cognis-digital/fwxray.git
+cd fwxray && pip install .
+```
+
+Then run:
+```sh
+fwxray --help
+```
+<!-- cognis:install:end -->
+
 ## Quick start
 
 ```bash
