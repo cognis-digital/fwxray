@@ -20,6 +20,30 @@ pip install cognis-fwxray
 fwxray scan .            # → prioritized findings in seconds
 ```
 
+
+## Usage — step by step
+
+1. Install (Python 3.9+):
+   ```bash
+   pip install fwxray
+   ```
+2. X-ray two firmware images and print a human-readable changelog of what an
+   OTA touched (changed sections, flipped flags, entropy shifts, string deltas):
+   ```bash
+   fwxray diff old.bin new.bin
+   ```
+3. Tune entropy-shift sensitivity and the block size for finer/coarser analysis:
+   ```bash
+   fwxray diff v1.bin v2.bin --block 2048 --entropy-threshold 0.5
+   ```
+4. Read the output: the report groups changes under Sections / Flags / Entropy
+   shifts / Strings. Use `--format json` for machine consumption; the process
+   exits `1` when the two images differ (and `0` when byte-for-byte identical).
+5. Capture an OTA changelog in CI:
+   ```bash
+   fwxray diff old.bin new.bin --format json > changelog.json
+   ```
+
 ## Contents
 
 - [Why fwxray?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
