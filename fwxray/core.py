@@ -309,6 +309,15 @@ def diff_firmware(
     max_strings: int = 200,
 ) -> FirmwareDiff:
     """Diff two firmware images on disk and return a structured FirmwareDiff."""
+    if block <= 0:
+        raise ValueError("block must be positive")
+    if entropy_threshold < 0:
+        raise ValueError("entropy_threshold must be >= 0")
+    if min_str_len < 1:
+        raise ValueError("min_str_len must be >= 1")
+    if max_strings < 0:
+        raise ValueError("max_strings must be >= 0")
+
     with open(old_path, "rb") as f:
         old = f.read()
     with open(new_path, "rb") as f:

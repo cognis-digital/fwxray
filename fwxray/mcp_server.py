@@ -1,6 +1,10 @@
-"""FWXRAY MCP server — exposes scan() as an MCP tool for Cognis.Studio."""
+"""FWXRAY MCP server — exposes diff_firmware() as an MCP tool for Cognis.Studio."""
 from __future__ import annotations
-from fwxray.core import scan, to_json
+
+import json
+
+from fwxray.core import diff_firmware
+
 
 def serve() -> int:
     """Start an MCP stdio server. Requires the optional 'mcp' extra:
@@ -14,9 +18,15 @@ def serve() -> int:
     app = FastMCP("fwxray")
 
     @app.tool()
-    def fwxray_scan(target: str) -> str:
-        """Diff two firmware images and surface exactly what changed: new binaries, flipped config flags, added certs, and shifted entropy regions.. Returns JSON findings."""
-        return to_json(scan(target))
+    def fwxray_diff(old_path: str, new_path: str) -> str:
+        """Diff two firmware images and surface exactly what changed: new
+        binaries, flipped config flags, added certs, and shifted entropy
+        regions. Returns JSON findings."""
+        try:
+            result = diff_firmware(old_path, new_path)
+        except (OSError, ValueError) as exc:
+            return json.dumps({"error": str(exc)})
+        return json.dumps(result.to_dict(), indent=2)
 
     app.run()
     return 0

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from typing import List, Optional
 
@@ -29,9 +30,13 @@ def _fmt_size(d: int) -> str:
 
 def _render_table(r: FirmwareDiff) -> str:
     lines: List[str] = []
-    lines.append(f"FWXRAY firmware changelog")
-    lines.append(f"  old: {r.old_path}  ({r.old_size} bytes, H={r.overall_entropy_old})")
-    lines.append(f"  new: {r.new_path}  ({r.new_size} bytes, H={r.overall_entropy_new})")
+    lines.append("FWXRAY firmware changelog")
+    lines.append(
+        f"  old: {r.old_path}  ({r.old_size} bytes, H={r.overall_entropy_old})"
+    )
+    lines.append(
+        f"  new: {r.new_path}  ({r.new_size} bytes, H={r.overall_entropy_new})"
+    )
     lines.append(f"  size delta: {_fmt_size(r.new_size - r.old_size)} bytes")
     if r.identical:
         lines.append("")
@@ -148,12 +153,33 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _validate_args(args: argparse.Namespace) -> Optional[str]:
+    """Return an error message string if any argument is invalid, else None."""
+    if args.block <= 0:
+        return f"--block must be a positive integer, got {args.block}"
+    if args.entropy_threshold < 0:
+        return (
+            f"--entropy-threshold must be >= 0, got {args.entropy_threshold}"
+        )
+    if args.min_str_len < 1:
+        return f"--min-str-len must be >= 1, got {args.min_str_len}"
+    for label, path in (("old", args.old), ("new", args.new)):
+        if os.path.isdir(path):
+            return f"{label!r} path is a directory, not a file: {path!r}"
+    return None
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
     if args.command != "diff":
         parser.print_help()
+        return 2
+
+    err = _validate_args(args)
+    if err:
+        print(f"{TOOL_NAME}: error: {err}", file=sys.stderr)
         return 2
 
     try:
@@ -165,6 +191,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             min_str_len=args.min_str_len,
         )
     except FileNotFoundError as e:
+        print(f"{TOOL_NAME}: error: {e}", file=sys.stderr)
+        return 2
+    except OSError as e:
         print(f"{TOOL_NAME}: error: {e}", file=sys.stderr)
         return 2
     except ValueError as e:
