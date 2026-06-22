@@ -19,8 +19,15 @@ import sys
 from typing import List, Optional
 
 from fwxray import TOOL_NAME, TOOL_VERSION
-from fwxray.core import FirmwareDiff, diff_firmware, to_sarif
+from fwxray.core import (
+    FirmwareDiff,
+    FirmwareReport,
+    diff_firmware,
+    inspect_firmware,
+    to_sarif,
+)
 from fwxray import datafeeds, feeds as feeds_mod
+from fwxray import active as active_mod
 
 
 def _fmt_size(d: int) -> str:
@@ -184,6 +191,54 @@ def build_parser() -> argparse.ArgumentParser:
                    help="output format (default: table)")
     s.add_argument("--min-str-len", type=int, default=4,
                    help="minimum printable string length (default: 4)")
+
+    # ---- passive single-image inspection --------------------------------- #
+    insp = sub.add_parser(
+        "inspect",
+        help="passively inspect a single firmware image (offline, read-only)",
+        description=(
+            "Passive, offline analysis of ONE firmware image already on disk: "
+            "carve sections, compute entropy, extract strings/flags, and surface "
+            "descriptive security indicators (embedded keys, hardcoded creds, "
+            "debug flags). No network, no device access."
+        ),
+    )
+    insp.add_argument("image", help="path to the firmware image to inspect")
+    insp.add_argument("--format", choices=["table", "json"], default="table",
+                      help="output format (default: table)")
+    insp.add_argument("--block", type=int, default=1024,
+                      help="entropy block size in bytes (default: 1024)")
+    insp.add_argument("--min-str-len", type=int, default=4,
+                      help="minimum printable string length (default: 4)")
+
+    # ---- ACTIVE acquisition (authorization-gated, OFF by default) -------- #
+    pull = sub.add_parser(
+        "pull",
+        help="AUTHORIZED-ONLY: read a live firmware image off a device you own",
+        description=(
+            "ACTIVE MODE -- AUTHORIZED USE ONLY. Reads a live firmware image off "
+            "a connected device/interface (MTD/flash partition, block device, "
+            "local capture endpoint) into a file for passive analysis. OFF by "
+            "default: requires --authorized AND an --allow scope allowlist AND a "
+            "rate limit. Out-of-scope sources are refused. Never targets a "
+            "network host."
+        ),
+    )
+    pull.add_argument("source", help="device/interface path to read (must be in scope)")
+    pull.add_argument("--authorized", action="store_true",
+                      help="REQUIRED: confirm you are authorized to read this device")
+    pull.add_argument("--allow", action="append", metavar="PATH-OR-GLOB",
+                      default=None,
+                      help="allowlist entry for the source (repeatable); also reads "
+                           "FWXRAY_DEVICE_ALLOWLIST")
+    pull.add_argument("--out", metavar="FILE", default=None,
+                      help="write the acquired image to FILE")
+    pull.add_argument("--max-bytes", type=int, default=64 * 1024 * 1024,
+                      help="hard ceiling on bytes read (default: 64 MiB)")
+    pull.add_argument("--max-bytes-per-sec", type=int, default=8 * 1024 * 1024,
+                      help="read throttle in bytes/sec, 0=unlimited (default: 8 MiB/s)")
+    pull.add_argument("--format", choices=["table", "json"], default="table",
+                      help="output format (default: table)")
     return p
 
 
@@ -258,6 +313,79 @@ def _cmd_scan(args) -> int:
     return 1 if any(f["known_exploited"] for f in findings) else 0
 
 
+def _render_inspect(r: FirmwareReport) -> str:
+    lines = ["FWXRAY firmware inspection (passive)",
+             f"  image: {r.path}",
+             f"  size:  {r.size} bytes   sha256={r.sha256[:16]}...",
+             f"  entropy: H={r.overall_entropy}  high-entropy blocks: "
+             f"{int(r.high_entropy_ratio * 100)}%", ""]
+    lines.append(f"== Sections ({len(r.sections)}) ==")
+    for s in r.sections[:20]:
+        lines.append(f"  {s['label']:<14} {s['size']} bytes @0x{s['offset']:x} "
+                     f"H={s['entropy']}")
+    lines.append("")
+    lines.append(f"== Strings: {r.string_count} ==")
+    lines.append(f"== Flags: {len(r.flags)} ==")
+    for k, v in list(r.flags.items())[:10]:
+        lines.append(f"  {k}: {v!r}")
+    lines.append("")
+    if r.indicators:
+        lines.append(f"== Security indicators ({len(r.indicators)}) ==")
+        for i in r.indicators:
+            mark = "!" if i["level"] == "warning" else "-"
+            lines.append(f"  {mark} {i['indicator']}: {i['evidence']}")
+    else:
+        lines.append("== Security indicators: none ==")
+    return "\n".join(lines)
+
+
+def _cmd_inspect(args) -> int:
+    try:
+        report = inspect_firmware(args.image, block=args.block,
+                                  min_str_len=args.min_str_len)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"{TOOL_NAME}: error: {e}", file=sys.stderr)
+        return 2
+    if args.format == "json":
+        print(json.dumps(report.to_dict(), indent=2))
+    else:
+        print(_render_inspect(report))
+    # CI gate: non-zero when a 'warning'-level indicator is present.
+    return 1 if any(i["level"] == "warning" for i in report.indicators) else 0
+
+
+def _cmd_pull(args) -> int:
+    # Loud authorized-use-only banner on every active invocation.
+    print(active_mod.BANNER, file=sys.stderr)
+    policy = active_mod.AcquisitionPolicy.from_env_and_args(
+        authorized=args.authorized,
+        allow=args.allow,
+        max_bytes=args.max_bytes,
+        max_bytes_per_sec=args.max_bytes_per_sec,
+    )
+    try:
+        result = active_mod.acquire(args.source, policy, out_path=args.out)
+    except active_mod.AuthorizationError as e:
+        print(f"{TOOL_NAME}: REFUSED (authorization): {e}", file=sys.stderr)
+        return 3
+    except active_mod.ScopeError as e:
+        print(f"{TOOL_NAME}: REFUSED (scope): {e}", file=sys.stderr)
+        return 3
+    except (FileNotFoundError, OSError) as e:
+        print(f"{TOOL_NAME}: error: {e}", file=sys.stderr)
+        return 2
+    if args.format == "json":
+        print(json.dumps(result.to_dict(), indent=2))
+    else:
+        print(f"acquired {result.bytes_read} bytes from {result.source}")
+        print(f"  sha256: {result.sha256}")
+        if result.truncated:
+            print("  WARNING: hit --max-bytes ceiling; image truncated")
+        if result.out_path:
+            print(f"  written: {result.out_path}")
+    return 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -266,6 +394,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         return _cmd_feeds(args)
     if args.command == "scan":
         return _cmd_scan(args)
+    if args.command == "inspect":
+        return _cmd_inspect(args)
+    if args.command == "pull":
+        return _cmd_pull(args)
     if args.command != "diff":
         parser.print_help()
         return 2

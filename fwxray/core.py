@@ -420,6 +420,89 @@ def to_sarif(result: "FirmwareDiff") -> dict:
     }
 
 
+@dataclass
+class FirmwareReport:
+    """Structured result of inspecting a SINGLE firmware image (passive)."""
+
+    path: str
+    size: int
+    sha256: str
+    overall_entropy: float
+    high_entropy_ratio: float
+    sections: List[dict] = field(default_factory=list)
+    flags: Dict[str, str] = field(default_factory=dict)
+    strings_sample: List[str] = field(default_factory=list)
+    string_count: int = 0
+    indicators: List[dict] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+# Heuristic passive indicators surfaced from a single image's strings. These are
+# descriptive observations for an analyst, not exploits or fabricated intel.
+_INDICATOR_PATTERNS: List[Tuple[str, str, str]] = [
+    (r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", "private-key", "warning"),
+    (r"\bAKIA[0-9A-Z]{16}\b", "aws-access-key-id", "warning"),
+    (r"\b(?:password|passwd|passwrd)\s*[:=]\s*\S+", "hardcoded-credential", "warning"),
+    (r"\btelnetd\b", "telnet-daemon", "note"),
+    (r"\bbackdoor", "backdoor-string", "warning"),
+    (r"BusyBox v\d", "busybox", "note"),
+    (r"\bdebug\s*[:=]\s*(?:1|true|on|yes)\b", "debug-enabled", "warning"),
+]
+
+
+def inspect_firmware(
+    path: str,
+    *,
+    block: int = 1024,
+    min_str_len: int = 4,
+    max_strings: int = 100,
+    high_entropy: float = 7.5,
+) -> "FirmwareReport":
+    """Passively inspect a SINGLE firmware image already on disk.
+
+    Offline, read-only, no network. Carves sections, computes entropy, extracts
+    strings/flags, and surfaces descriptive security indicators (hardcoded
+    credentials, embedded private keys, debug flags, telnet daemons, ...).
+    """
+    with open(path, "rb") as fh:
+        data = fh.read()
+
+    profile = block_entropy_profile(data, block) if data else []
+    high = sum(1 for e in profile if e >= high_entropy)
+    high_ratio = round(high / len(profile), 4) if profile else 0.0
+
+    strings = extract_strings(data, min_str_len)
+    flags = _parse_flags(strings)
+
+    indicators: List[dict] = []
+    seen = set()
+    for pat, label, level in _INDICATOR_PATTERNS:
+        rx = re.compile(pat, re.IGNORECASE)
+        for s in strings:
+            if rx.search(s):
+                if label in seen:
+                    continue
+                seen.add(label)
+                indicators.append({"indicator": label, "level": level,
+                                   "evidence": s[:120]})
+                break  # one example per indicator type is enough
+
+    return FirmwareReport(
+        path=path,
+        size=len(data),
+        sha256=hashlib.sha256(data).hexdigest(),
+        overall_entropy=shannon_entropy(data),
+        high_entropy_ratio=high_ratio,
+        sections=[s.to_dict() for s in carve_sections(data)],
+        flags=flags,
+        strings_sample=strings[:max_strings],
+        string_count=len(strings),
+        indicators=indicators,
+    )
+
+
 def diff_firmware(
     old_path: str,
     new_path: str,

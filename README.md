@@ -60,14 +60,14 @@ Vendor 'security update' transparency — paste two .bin URLs in CI, get a human
 <a name="features"></a>
 ## Features
 
-- ✅ Shannon Entropy
-- ✅ Block Entropy Profile
-- ✅ Carve Sections
-- ✅ Extract Strings
-- ✅ Diff Strings
-- ✅ Diff Firmware
+- ✅ Shannon Entropy · Block Entropy Profile
+- ✅ Carve Sections (magic-signature firmware carving)
+- ✅ Extract Strings · Diff Strings · Diff Firmware
+- ✅ **Passive single-image inspection** (`inspect`) — entropy, sections, flags, and security indicators, fully offline
+- ✅ Component vulnerability enrichment via OSV + CISA-KEV **and a bundled 262k-record offline vuln DB**
+- ✅ **Active acquisition** (`pull`) — read a live image off a device you own, **authorization-gated and OFF by default**
 - ✅ Runs on Linux/macOS/Windows · Docker · devcontainer
-- ✅ Ports in Python, JavaScript, Go, and Rust (`ports/`)
+- ✅ Ports in Python, JavaScript, Go, Rust, and Shell (`ports/`)
 
 <div align="right"><a href="#top">↑ back to top</a></div>
 
@@ -82,6 +82,62 @@ fwxray diff old.bin new.bin --format json      # machine-readable
 fwxray diff old.bin new.bin --format sarif      # GitHub code-scanning
 # exit code is 1 when the images differ (CI gate), 0 when identical
 ```
+
+<div align="right"><a href="#top">↑ back to top</a></div>
+
+<a name="passive-active"></a>
+## Passive vs. active modes
+
+fwxray is **defensive, authorized-use-only** tooling. It has two clearly
+separated modes.
+
+### Passive (default — always safe)
+
+Passive mode works only on firmware images you already have on disk. It never
+touches a device and never touches the network (feed enrichment uses a local
+cache / the bundled offline vuln DB). This is everything you normally run:
+
+```bash
+fwxray diff old.bin new.bin            # diff two images
+fwxray inspect fw.bin                   # X-ray ONE image: entropy, sections,
+                                        #   flags, and security indicators
+fwxray scan old.bin new.bin --offline   # diff + component vuln enrichment (air-gap)
+```
+
+`inspect` surfaces descriptive indicators an analyst cares about — embedded
+private keys, hardcoded credentials, debug flags, telnet daemons — and exits `1`
+when a warning-level indicator is present (CI gate).
+
+### Active (`pull`) — AUTHORIZED USE ONLY, OFF by default
+
+> ⚠️ **AUTHORIZED-USE-ONLY.** Active mode reads a live firmware image off a
+> connected device/interface you physically control (an MTD/flash partition, a
+> block device, a local capture endpoint). Reading firmware off hardware you do
+> not own or are not authorized to test may be illegal. **You** are responsible
+> for your scope. fwxray never targets a remote/network host.
+
+Active mode is locked down by construction:
+
+- **OFF by default.** `pull` refuses to run unless you pass `--authorized`.
+- **Scope-enforced.** The source must match an explicit `--allow` allowlist
+  (or `FWXRAY_DEVICE_ALLOWLIST`). An empty scope authorizes *nothing*; an
+  out-of-scope source is refused, never silently read.
+- **Rate-limited.** Reads are throttled (`--max-bytes-per-sec`) and bounded by a
+  hard `--max-bytes` ceiling.
+- **Loud banner.** Every authorized pull prints an authorized-use-only banner.
+
+```bash
+# refused — active mode is off by default
+fwxray pull /dev/mtd0
+
+# authorized, scoped, rate-limited acquisition into a file for passive analysis
+fwxray pull /dev/mtd0 --authorized --allow '/dev/mtd*' \
+       --max-bytes-per-sec 8388608 --out device.bin
+fwxray inspect device.bin               # then analyze it passively
+```
+
+Exit codes: `3` = refused (not authorized / out of scope), `2` = read error,
+`0` = acquired.
 
 <div align="right"><a href="#top">↑ back to top</a></div>
 

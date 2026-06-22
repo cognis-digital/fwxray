@@ -157,11 +157,65 @@ def _cves_of(vuln: dict) -> List[str]:
 
 
 # --------------------------------------------------------------------------- #
+# bundled offline vuln DB (262k records) — air-gap fallback for OSV
+# --------------------------------------------------------------------------- #
+_VDB = None  # lazily-loaded singleton
+
+
+def _vulndb():
+    """Return a cached VulnDB instance (the bundled offline corpus)."""
+    global _VDB
+    if _VDB is None:
+        from fwxray.vulndb_local import VulnDB
+        _VDB = VulnDB()
+    return _VDB
+
+
+def query_vulndb(name: str, version: str = "", *, max_hits: int = 50) -> List[dict]:
+    """Resolve a component against the bundled offline vuln DB by package name.
+
+    Used as the air-gap fallback when no live OSV / pre-resolved index is
+    available. Package names in the bundle are ecosystem-qualified
+    (``org.apache.logging.log4j:log4j-core``), so we match on the package leaf
+    (the part after the last ``:`` or ``/``) as well as the exact alias
+    coordinate. Returns OSV-shaped records so the enrichment pipeline is
+    unchanged.
+    """
+    db = _vulndb()
+    if db.count() == 0:  # bundle missing / empty
+        return []
+
+    wanted = {name.lower()}
+    alias = _ALIASES.get(name.lower())
+    if alias:
+        coord = alias[1].lower()
+        wanted.add(coord)
+        wanted.add(coord.split(":")[-1])
+
+    def _leaf(pkg: str) -> str:
+        return pkg.lower().rsplit(":", 1)[-1].rsplit("/", 1)[-1]
+
+    seen: set = set()
+    out: List[dict] = []
+    for r in db:
+        pkgs = r.get("packages") or []
+        if any(p.lower() in wanted or _leaf(p) in wanted for p in pkgs):
+            rid = r.get("id")
+            if rid and rid not in seen:
+                seen.add(rid)
+                out.append(r)
+                if len(out) >= max_hits:
+                    break
+    return out
+
+
+# --------------------------------------------------------------------------- #
 # enrichment
 # --------------------------------------------------------------------------- #
 def enrich_components(components: List[Dict[str, str]], *,
                       offline: bool = False,
-                      osv_index: Optional[Dict[str, List[dict]]] = None) -> List[dict]:
+                      osv_index: Optional[Dict[str, List[dict]]] = None,
+                      use_vulndb: bool = True) -> List[dict]:
     """Map each component to OSV vulns and flag CISA-KEV known-exploited CVEs.
 
     Parameters
@@ -182,9 +236,12 @@ def enrich_components(components: List[Dict[str, str]], *,
         if osv_index is not None:
             vulns = osv_index.get(key, [])
         elif offline:
-            vulns = []  # no live OSV when offline and no index supplied
+            # no live OSV when offline: fall back to the bundled vuln DB.
+            vulns = query_vulndb(comp["name"], comp["version"]) if use_vulndb else []
         else:
             vulns = query_osv(comp["name"], comp["version"])
+            if not vulns and use_vulndb:
+                vulns = query_vulndb(comp["name"], comp["version"])
         if not vulns:
             continue
         vuln_rows = []

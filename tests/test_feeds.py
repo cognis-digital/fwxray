@@ -111,11 +111,20 @@ def test_enrich_orders_known_exploited_first():
 
 
 def test_enrich_offline_without_index_is_safe():
-    """Offline with no OSV index: no crash, KEV still loads, just no OSV vulns."""
+    """Offline with no OSV index and the bundle disabled: no crash, no vulns."""
     from fwxray.feeds import enrich_components
     comps = [{"name": "log4j-core", "version": "2.14.1", "raw": "x"}]
-    findings = enrich_components(comps, offline=True)
-    assert findings == []  # nothing to report without OSV resolution
+    findings = enrich_components(comps, offline=True, use_vulndb=False)
+    assert findings == []  # nothing to report without OSV resolution or bundle
+
+
+def test_enrich_offline_falls_back_to_bundle():
+    """Offline with no OSV index now resolves vulns from the bundled vuln DB."""
+    from fwxray.feeds import enrich_components
+    comps = [{"name": "log4j-core", "version": "2.14.1", "raw": "x"}]
+    findings = enrich_components(comps, offline=True)  # use_vulndb default True
+    assert findings and findings[0]["vuln_count"] >= 1
+    assert findings[0]["known_exploited"] is True
 
 
 def test_cli_feeds_list(capsys):

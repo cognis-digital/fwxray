@@ -5,6 +5,9 @@
   "bin": {
     "fwxray": "index.js"
   },
+  "scripts": {
+    "test": "node --test"
+  },
   "license": "LicenseRef-COCL-1.0",
   "type": "module"
 }
