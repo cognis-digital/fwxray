@@ -301,3 +301,7 @@ Source-available under the **Cognis Open Collaboration License (COCL) v1.0** —
 ---
 
 <div align="center"><sub><b><a href="https://cognis.digital">Cognis Digital</a></b> · one of 170+ tools in the <a href="https://github.com/cognis-digital/cognis-neural-suite">Cognis Neural Suite</a> · <i>Making Tomorrow Better Today</i></sub></div>
+
+## Bundled vulnerability database
+
+Ships `fwxray/cognis_vulndb.jsonl.gz` — **262,351 real vulnerabilities** (OSV across 7 ecosystems) with detailed metadata; offline stdlib loader `vulndb_local.VulnDB`, air-gap ready.
