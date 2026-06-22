@@ -9,9 +9,33 @@ from __future__ import annotations
 
 import hashlib
 import math
+import os
 import re
 from dataclasses import dataclass, field, asdict
 from typing import Dict, List, Optional, Tuple
+
+TOOL_NAME = "fwxray"
+
+
+def _read_version() -> str:
+    """Read the package version from the repo-root VERSION file.
+
+    Falls back to a sane default so imports never fail in odd layouts.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidate = os.path.join(os.path.dirname(here), "VERSION")
+    try:
+        with open(candidate, "r", encoding="utf-8") as fh:
+            v = fh.read().strip()
+        # Guard against malformed content; require X.Y.Z shape.
+        if v.count(".") == 2 and all(p.isdigit() for p in v.split(".")):
+            return v
+    except OSError:
+        pass
+    return "0.1.0"
+
+
+TOOL_VERSION = _read_version()
 
 # ---------------------------------------------------------------------------
 # Magic signatures. Offset within the image -> (label, signature bytes).
@@ -297,6 +321,103 @@ def _entropy_shifts(
                 }
             )
     return shifts
+
+
+# ---------------------------------------------------------------------------
+# SARIF 2.1.0 export. Lets fwxray drop straight into GitHub code-scanning and
+# any other SARIF-consuming pipeline. Each diff observation becomes a result.
+# ---------------------------------------------------------------------------
+_SARIF_RULES = [
+    ("fwx-flag-flipped", "Config flag flipped", "warning"),
+    ("fwx-flag-added", "Config flag added", "note"),
+    ("fwx-flag-removed", "Config flag removed", "note"),
+    ("fwx-section-added", "Firmware section added", "note"),
+    ("fwx-section-removed", "Firmware section removed", "warning"),
+    ("fwx-section-changed", "Firmware section changed", "note"),
+    ("fwx-entropy-shift", "Entropy shift", "warning"),
+]
+
+
+def to_sarif(result: "FirmwareDiff") -> dict:
+    """Render a FirmwareDiff as a SARIF 2.1.0 log document.
+
+    The ``new`` image path is used as the artifact location so consumers can
+    attribute findings to the image that introduced them. Region offsets are
+    surfaced via the ``byteOffset``/``byteLength`` properties when available.
+    """
+    rules = [
+        {
+            "id": rid,
+            "name": "".join(part.capitalize() for part in rid.split("-")),
+            "shortDescription": {"text": desc},
+            "defaultConfiguration": {"level": level},
+        }
+        for rid, desc, level in _SARIF_RULES
+    ]
+
+    artifact = {"uri": result.new_path.replace("\\", "/")}
+    results: List[dict] = []
+
+    def emit(rule_id: str, message: str, offset: Optional[int] = None,
+             length: Optional[int] = None) -> None:
+        region = {}
+        if offset is not None:
+            region["byteOffset"] = int(offset)
+        if length is not None:
+            region["byteLength"] = int(length)
+        loc = {"physicalLocation": {"artifactLocation": artifact}}
+        if region:
+            loc["physicalLocation"]["region"] = region
+        results.append(
+            {
+                "ruleId": rule_id,
+                "message": {"text": message},
+                "locations": [loc],
+            }
+        )
+
+    for k, v in result.flags_flipped.items():
+        emit("fwx-flag-flipped", f"Flag {k!r} flipped {v['old']!r} -> {v['new']!r}")
+    for k, v in result.flags_added.items():
+        emit("fwx-flag-added", f"Flag {k!r} added with value {v!r}")
+    for k, v in result.flags_removed.items():
+        emit("fwx-flag-removed", f"Flag {k!r} removed (was {v!r})")
+    for s in result.sections_added:
+        emit("fwx-section-added",
+             f"Section {s['label']!r} added ({s['size']} bytes, H={s['entropy']})",
+             offset=s.get("offset"), length=s.get("size"))
+    for s in result.sections_removed:
+        emit("fwx-section-removed",
+             f"Section {s['label']!r} removed ({s['size']} bytes)",
+             offset=s.get("offset"), length=s.get("size"))
+    for s in result.sections_changed:
+        emit("fwx-section-changed",
+             f"Section {s['label']!r} changed (size {s['size_delta']:+d}, "
+             f"entropy {s['entropy_delta']:+})",
+             offset=s.get("new_offset"), length=s.get("new_size"))
+    for e in result.entropy_shifts:
+        emit("fwx-entropy-shift",
+             f"Entropy shift {e['old_entropy']} -> {e['new_entropy']} "
+             f"({e['delta']:+} bits/byte) at offset 0x{e['offset']:x}",
+             offset=e.get("offset"))
+
+    return {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": TOOL_NAME,
+                        "version": TOOL_VERSION,
+                        "informationUri": "https://github.com/cognis-digital/fwxray",
+                        "rules": rules,
+                    }
+                },
+                "results": results,
+            }
+        ],
+    }
 
 
 def diff_firmware(

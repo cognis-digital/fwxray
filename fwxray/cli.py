@@ -19,7 +19,7 @@ import sys
 from typing import List, Optional
 
 from fwxray import TOOL_NAME, TOOL_VERSION
-from fwxray.core import FirmwareDiff, diff_firmware
+from fwxray.core import FirmwareDiff, diff_firmware, to_sarif
 
 
 def _fmt_size(d: int) -> str:
@@ -123,7 +123,7 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("new", help="path to the new/updated firmware image")
     d.add_argument(
         "--format",
-        choices=["table", "json"],
+        choices=["table", "json", "sarif"],
         default="table",
         help="output format (default: table)",
     )
@@ -173,6 +173,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.format == "json":
         print(json.dumps(result.to_dict(), indent=2))
+    elif args.format == "sarif":
+        print(json.dumps(to_sarif(result), indent=2))
     else:
         print(_render_table(result))
 

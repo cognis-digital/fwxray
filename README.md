@@ -17,7 +17,7 @@
 
 ```bash
 pip install cognis-fwxray
-fwxray scan .            # → prioritized findings in seconds
+fwxray diff old.bin new.bin     # → human-readable OTA changelog in seconds
 ```
 
 
@@ -46,7 +46,7 @@ fwxray scan .            # → prioritized findings in seconds
 
 ## Contents
 
-- [Why fwxray?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
+- [Why fwxray?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Demos](#demos) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
 
 <a name="why"></a>
 ## Why fwxray?
@@ -77,9 +77,10 @@ Vendor 'security update' transparency — paste two .bin URLs in CI, get a human
 ```bash
 pip install cognis-fwxray
 fwxray --version
-fwxray scan .                       # scan current project
-fwxray scan . --format json         # machine-readable
-fwxray scan . --fail-on high        # CI gate (non-zero exit)
+fwxray diff old.bin new.bin                    # human-readable changelog
+fwxray diff old.bin new.bin --format json      # machine-readable
+fwxray diff old.bin new.bin --format sarif      # GitHub code-scanning
+# exit code is 1 when the images differ (CI gate), 0 when identical
 ```
 
 <div align="right"><a href="#top">↑ back to top</a></div>
@@ -88,11 +89,51 @@ fwxray scan . --fail-on high        # CI gate (non-zero exit)
 ## Example
 
 ```text
-$ fwxray scan .
-  [HIGH    ] FWX-001  example finding             (./src/app.py)
-  [MEDIUM  ] FWX-002  another signal              (./config.yaml)
+$ fwxray diff old.bin new.bin
+FWXRAY firmware changelog
+  old: old.bin  (2165 bytes, H=4.2396)
+  new: new.bin  (2247 bytes, H=4.3792)
+  size delta: +82 bytes
 
-  2 findings · risk score 5 · 38ms
+== Flags / config ==
+  ~ analytics: 'off' -> 'on'
+  ~ telemetry_optout: 'true' -> 'false'
+  + metrics_endpoint: 'https://collect.northgate-telemetry.example'
+
+== Entropy shifts ==
+  (no significant entropy shifts)
+
+== Strings ==
+  +5 added / -3 removed
+```
+
+<div align="right"><a href="#top">↑ back to top</a></div>
+
+<a name="demos"></a>
+## Demos
+
+Each folder in [`demos/`](demos/) is a self-contained, real-use-case scenario:
+a deterministic `make_images.py` that writes `old.bin` / `new.bin` in the real
+firmware-image input format, plus a `SCENARIO.md` (where the data came from,
+the exact run command, what to expect, and how to act). All ten are exercised
+by the test suite.
+
+| Demo | Situation | Headline finding |
+|---|---|---|
+| [`01-basic`](demos/01-basic/) | First OTA diff | flag flips + entropy tail |
+| [`02-clean`](demos/02-clean/) | Identical images (control) | none — exit 0 |
+| [`03-mixed`](demos/03-mixed/) | Typical point release | version bump + new asset + entropy |
+| [`04-telemetry-added`](demos/04-telemetry-added/) | "Stability fix" adds telemetry | opt-out cleared, metrics endpoint added |
+| [`05-debug-backdoor`](demos/05-debug-backdoor/) | RC ships with debug on | telnet/root-SSH/console re-enabled |
+| [`06-cert-rotation`](demos/06-cert-rotation/) | Benign CA rotation (control) | single expected PEM swap |
+| [`07-encrypted-partition`](demos/07-encrypted-partition/) | Rootfs becomes encrypted | high-entropy region spike |
+| [`08-version-downgrade`](demos/08-version-downgrade/) | Rollback/downgrade attack | fw_version moves backward |
+| [`09-identical-resign`](demos/09-identical-resign/) | No-op re-publish (control) | none — exit 0 |
+| [`10-squashfs-grow`](demos/10-squashfs-grow/) | Feature update | squashfs grows + new applets |
+
+```bash
+python -m fwxray diff demos/05-debug-backdoor/old.bin demos/05-debug-backdoor/new.bin
+python -m fwxray diff demos/04-telemetry-added/old.bin demos/04-telemetry-added/new.bin --format sarif
 ```
 
 <div align="right"><a href="#top">↑ back to top</a></div>
@@ -102,8 +143,9 @@ $ fwxray scan .
 
 ```mermaid
 flowchart LR
-  IN[image / coordinates] --> P[fwxray<br/>extract + geolocate]
-  P --> OUT[location estimate]
+  OLD[old.bin] --> P[fwxray diff<br/>carve · entropy · strings · flags]
+  NEW[new.bin] --> P
+  P --> OUT[changelog<br/>table · JSON · SARIF]
 ```
 
 <div align="right"><a href="#top">↑ back to top</a></div>
@@ -114,7 +156,7 @@ flowchart LR
 `fwxray` is interoperable with every popular way of using AI:
 
 - **MCP server** — `fwxray mcp` (Claude Desktop, Cursor, Cognis.Studio, [uncensored-fleet](https://github.com/cognis-digital/uncensored-fleet))
-- **OpenAI-compatible / JSON** — pipe `fwxray scan . --format json` into any agent or LLM
+- **OpenAI-compatible / JSON** — pipe `fwxray diff old.bin new.bin --format json` into any agent or LLM
 - **LangChain · CrewAI · AutoGen · LlamaIndex** — wrap the CLI/JSON as a tool in one line
 - **CI / scripts** — exit codes + SARIF for non-AI pipelines
 
