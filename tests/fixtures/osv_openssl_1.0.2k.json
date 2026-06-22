@@ -1,0 +1,24 @@
+{
+ "vulns": [
+  {
+   "id": "ALPINE-CVE-2018-0732",
+   "aliases": [],
+   "summary": "During key agreement in a TLS handshake using a DH(E) based ciphersuite a malicious server can send a very large prime v"
+  },
+  {
+   "id": "ALPINE-CVE-2018-0733",
+   "aliases": [],
+   "summary": "Because of an implementation bug the PA-RISC CRYPTO_memcmp function is effectively reduced to only comparing the least s"
+  },
+  {
+   "id": "ALPINE-CVE-2018-0737",
+   "aliases": [],
+   "summary": "The OpenSSL RSA Key generation algorithm has been shown to be vulnerable to a cache timing side channel attack. An attac"
+  },
+  {
+   "id": "ALPINE-CVE-2018-0739",
+   "aliases": [],
+   "summary": "Constructed ASN.1 types with a recursive definition (such as can be found in PKCS7) could eventually exceed the stack gi"
+  }
+ ]
+}

@@ -115,7 +115,7 @@ FWXRAY firmware changelog
 Each folder in [`demos/`](demos/) is a self-contained, real-use-case scenario:
 a deterministic `make_images.py` that writes `old.bin` / `new.bin` in the real
 firmware-image input format, plus a `SCENARIO.md` (where the data came from,
-the exact run command, what to expect, and how to act). All ten are exercised
+the exact run command, what to expect, and how to act). All eleven are exercised
 by the test suite.
 
 | Demo | Situation | Headline finding |
@@ -130,11 +130,74 @@ by the test suite.
 | [`08-version-downgrade`](demos/08-version-downgrade/) | Rollback/downgrade attack | fw_version moves backward |
 | [`09-identical-resign`](demos/09-identical-resign/) | No-op re-publish (control) | none — exit 0 |
 | [`10-squashfs-grow`](demos/10-squashfs-grow/) | Feature update | squashfs grows + new applets |
+| [`11-vuln-component-bump`](demos/11-vuln-component-bump/) | OTA bundles a vulnerable lib | `log4j-core 2.14.1` flagged CISA-KEV **known-exploited** |
 
 ```bash
 python -m fwxray diff demos/05-debug-backdoor/old.bin demos/05-debug-backdoor/new.bin
 python -m fwxray diff demos/04-telemetry-added/old.bin demos/04-telemetry-added/new.bin --format sarif
+
+# component vulnerability scan (OSV + CISA-KEV); --offline for air-gap
+python -m fwxray scan demos/11-vuln-component-bump/old.bin demos/11-vuln-component-bump/new.bin
 ```
+
+<div align="right"><a href="#top">↑ back to top</a></div>
+
+<a name="data-feeds"></a>
+## Data feeds — component vulnerability enrichment (edge / air-gap)
+
+An OTA that bumps a bundled library leaves the library's name and version in the
+firmware's strings (`OpenSSL 1.0.2k`, `BusyBox v1.30.1`, `log4j-core-2.14.1`).
+`fwxray scan` turns that into a real finding: it parses the **added** component
+strings, queries **OSV.dev** for known vulnerabilities affecting that exact
+version, and cross-references every CVE against the **CISA Known Exploited
+Vulnerabilities** catalog — raising a `KNOWN-EXPLOITED` flag, the highest-priority
+"patch this now" signal for a fielded device. `scan` exits non-zero whenever a
+known-exploited component is present, so it gates CI / OTA promotion.
+
+### Feeds consumed
+
+| id | source | URL |
+|---|---|---|
+| `osv` | OSV.dev vulnerability query (package+version → vulns, all ecosystems) | `https://api.osv.dev/v1/query` |
+| `cisa-kev` | CISA Known Exploited Vulnerabilities catalog | `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json` |
+
+Both are authoritative and keyless. The catalog lives in
+[`fwxray/data_feeds_2026.json`](fwxray/data_feeds_2026.json); ingestion is the
+standard-library-only [`fwxray/datafeeds.py`](fwxray/datafeeds.py) (no pip deps).
+
+### Commands
+
+```bash
+fwxray feeds list                      # the feeds this tool consumes + cache freshness
+fwxray feeds update cisa-kev           # fetch + cache (online)
+fwxray feeds get cisa-kev --offline    # re-serve from the local cache, no network
+fwxray scan old.bin new.bin            # diff + enrich (online)
+fwxray scan old.bin new.bin --offline  # enrich from the cached snapshot (air-gap)
+```
+
+### Edge / air-gap workflow
+
+Every fetch is cached to `COGNIS_FEEDS_CACHE` (default `~/.cache/cognis-feeds`)
+and can be re-served with `--offline`, so a disconnected device keeps working
+from its last snapshot. To move feeds across an air gap by sneakernet:
+
+```bash
+# on a connected staging box:
+fwxray feeds update cisa-kev
+python -m fwxray.datafeeds snapshot-export feeds.tar.gz
+
+# carry feeds.tar.gz to the enclave, then on the air-gapped device:
+python -m fwxray.datafeeds snapshot-import feeds.tar.gz
+COGNIS_FEEDS_CACHE=~/.cache/cognis-feeds fwxray scan old.bin new.bin --offline
+```
+
+`cisa-kev` is a bulk catalog that caches cleanly. `osv` is a per-query POST API,
+so for fully-offline OSV resolution pre-resolve the component→vulns map on the
+connected box (see `fwxray.feeds.build_offline_index`) and ship it with the
+snapshot; `demos/11-vuln-component-bump/demo_enrich.py` shows the entire flow
+running with **zero network** against the committed fixtures.
+
+> Defensive / authorized-use intelligence only.
 
 <div align="right"><a href="#top">↑ back to top</a></div>
 

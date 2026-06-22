@@ -93,12 +93,32 @@ def test_10_squashfs_grow():
     assert any("wireguard-go" in s for s in r.strings_added)
 
 
+def test_11_vuln_component_bump():
+    r = _gen("11-vuln-component-bump")
+    assert r.has_findings()
+    # the Log4Shell-era jar name shows up as an added string for the feeds layer.
+    assert any("log4j-core-2.14.1" in s for s in r.strings_added)
+
+
+def test_11_offline_enrichment_demo(monkeypatch):
+    """The committed offline demo flags a known-exploited component, no network."""
+    fix = os.path.join(DEMOS, "..", "tests", "fixtures")
+    monkeypatch.setenv("COGNIS_FEEDS_CACHE", os.path.join(fix, "cache"))
+    # runs demo_enrich.main(), which asserts a KEV hit internally; rc 0 on success.
+    mod = runpy.run_path(
+        os.path.join(DEMOS, "11-vuln-component-bump", "demo_enrich.py"),
+        run_name="fwxray_demo11",
+    )
+    assert mod["main"]() == 0
+
+
 @pytest.mark.parametrize(
     "demo",
     [
         "01-basic", "02-clean", "03-mixed", "04-telemetry-added",
         "05-debug-backdoor", "06-cert-rotation", "07-encrypted-partition",
         "08-version-downgrade", "09-identical-resign", "10-squashfs-grow",
+        "11-vuln-component-bump",
     ],
 )
 def test_every_demo_has_scenario_and_generator(demo):
