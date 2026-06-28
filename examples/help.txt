@@ -1,0 +1,22 @@
+$ fwxray-emit --help
+
+usage: fwxray [-h] [--version] COMMAND ...
+
+X-ray two firmware images and produce a human-readable changelog of what an OTA touched: changed sections, flipped flags, and entropy shifts.
+
+positional arguments:
+  COMMAND
+    diff      diff two firmware images
+    feeds     manage the OSV / CISA-KEV data feeds (edge/air-gap)
+    scan      diff two firmware images and enrich added components via OSV/KEV
+    inspect   passively inspect a single firmware image (offline, read-only)
+    pull      AUTHORIZED-ONLY: read a live firmware image off a device you own
+
+options:
+  -h, --help  show this help message and exit
+  --version   show program's version number and exit
+
+examples:
+  fwxray diff old.bin new.bin
+  fwxray diff old.bin new.bin --format json > changelog.json
+  fwxray diff v1.bin v2.bin --block 2048 --entropy-threshold 0.5

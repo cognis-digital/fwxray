@@ -1,0 +1,3 @@
+$ fwxray-emit --version
+
+fwxray 0.1.6

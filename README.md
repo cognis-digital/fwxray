@@ -21,6 +21,68 @@ fwxray diff old.bin new.bin     # → human-readable OTA changelog in seconds
 ```
 
 
+
+<!-- cognis:example:start -->
+## 🔎 Example output
+
+Real, reproducible output from the tool — runs offline:
+
+```console
+$ fwxray-emit --version
+fwxray 0.1.6
+```
+
+```console
+$ fwxray-emit --help
+usage: fwxray [-h] [--version] COMMAND ...
+
+X-ray two firmware images and produce a human-readable changelog of what an OTA touched: changed sections, flipped flags, and entropy shifts.
+
+positional arguments:
+  COMMAND
+    diff      diff two firmware images
+    feeds     manage the OSV / CISA-KEV data feeds (edge/air-gap)
+    scan      diff two firmware images and enrich added components via OSV/KEV
+    inspect   passively inspect a single firmware image (offline, read-only)
+    pull      AUTHORIZED-ONLY: read a live firmware image off a device you own
+
+options:
+  -h, --help  show this help message and exit
+  --version   show program's version number and exit
+
+examples:
+  fwxray diff old.bin new.bin
+  fwxray diff old.bin new.bin --format json > changelog.json
+  fwxray diff v1.bin v2.bin --block 2048 --entropy-threshold 0.5
+```
+
+> Blocks above are real `fwxray` output — reproduce them from a clone.
+
+**Sample result format** _(illustrative values — run on your own data for real findings):_
+
+```
+{
+"findings": [
+    {
+        "id": "123456",
+        "title": "Suspicious Network Traffic",
+        "description": "Potential malicious activity detected on port 443.",
+        "severity": "high",
+        "created": "2023-02-15T14:30:00Z"
+    },
+    {
+        "id": "789012",
+        "title": "Unusual File Access",
+        "description": "User 'johndoe' accessed a file with unusual permissions.",
+        "severity": "medium",
+        "created": "2023-02-15T14:35:00Z"
+    }
+]
+}
+```
+
+<!-- cognis:example:end -->
+
 ## Usage — step by step
 
 1. Install (Python 3.9+):
