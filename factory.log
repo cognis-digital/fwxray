@@ -1,0 +1,17 @@
+[2026-08-17 10:55:15] === enhance · fwxray · words=120000 loc>=10000 langs=9 push=True ===
+[2026-08-17 10:55:20] phase DOCS — longform 120000-word corpus -> docs/corpus/
+[2026-08-17 21:12:18] phase POLYGLOT — expanding to >= 10000 LOC across 9 languages
+[2026-08-17 21:12:53]   facets: ['binary_diff', 'config_flag_parser', 'cert_extractor', 'entropy_detector', 'change_aggregator', 'report_formatter']
+[2026-08-17 21:14:55]   +polyglot/python/binary_diff.py  (loc now ~4986)
+[2026-08-17 21:17:02]   +polyglot/go/binary_diff.go  (loc now ~5455)
+[2026-08-17 21:20:57]   +polyglot/rust/binary_diff.rs  (loc now ~5886)
+[2026-08-17 21:24:29]   +polyglot/typescript/binary_diff.ts  (loc now ~6368)
+[2026-08-17 21:27:09]   +polyglot/c/binary_diff.c  (loc now ~6794)
+[2026-08-17 21:29:28]   +polyglot/cpp/binary_diff.cpp  (loc now ~7055)
+[2026-08-17 21:32:56]   +polyglot/java/binary_diff.java  (loc now ~7491)
+[2026-08-17 21:36:42]   +polyglot/ruby/binary_diff.rb  (loc now ~7930)
+[2026-08-17 21:40:29]   +polyglot/csharp/binary_diff.cs  (loc now ~8421)
+[2026-08-17 21:44:15]   +polyglot/python/config_flag_parser.py  (loc now ~8943)
+[2026-08-17 21:48:00]   +polyglot/go/config_flag_parser.go  (loc now ~9433)
+[2026-08-17 21:51:07]   +polyglot/rust/config_flag_parser.rs  (loc now ~9859)
+[2026-08-17 21:54:36]   +polyglot/typescript/config_flag_parser.ts  (loc now ~10348)
